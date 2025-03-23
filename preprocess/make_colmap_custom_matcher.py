@@ -24,20 +24,21 @@ def decimal_coords(coords, ref):
     return decimal_degrees
 
 def image_coordinates(image_name):
-    with open(os.path.join(args.image_path, image_name), 'rb') as src:
-        img = Image(src)
-    if img.has_exif:
-        try:
-            img.gps_longitude
-            coords = [
-                decimal_coords(img.gps_latitude, img.gps_latitude_ref),
-                decimal_coords(img.gps_longitude, img.gps_longitude_ref)
-            ]
-            return coords
-        except AttributeError:
+    try:
+        with open(os.path.join(args.image_path, image_name), 'rb') as src:
+            img = Image(src)
+        if img.has_exif:
+                img.gps_longitude
+                coords = [
+                    decimal_coords(img.gps_latitude, img.gps_latitude_ref),
+                    decimal_coords(img.gps_longitude, img.gps_longitude_ref)
+                ]
+                return coords
+        else:
             return None
-    else:
-        return None    
+    except Exception as e:
+        return None
+
     
 def get_matches(img_name, cam_center, cam_nbrs, img_names_gps):
     _, indices = cam_nbrs.kneighbors(cam_center[None])
@@ -64,7 +65,21 @@ def find_images_names(root_dir):
 
     return image_files_by_subdir
 
+def add_match(cam_id, matched_cam_id, current_image_file, matched_frame_id):
+    # REMOVE AFTER
+    # if (cam_folder_list[cam_id + matched_cam_id] == "backleft") and (not cam_folder_list[cam_id] == "backleft") and (matched_frame_id >= 785):
+    #     matched_frame_id -= 647
+    # if (not cam_folder_list[cam_id + matched_cam_id] == "backleft") and (cam_folder_list[cam_id] == "backleft") and (matched_frame_id >= 785):
+    #     matched_frame_id += 647
+
+    if matched_frame_id < len(matched_cam['images']):
+        matched_image_file = matched_cam['images'][matched_frame_id]
+        matches_str.append(f"{cam_folder_list[cam_id]}/{current_image_file} {cam_folder_list[cam_id + matched_cam_id]}/{matched_image_file}\n")
+
+
 if __name__ == '__main__':
+    from pathlib import Path
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--image_path', required=True)
     parser.add_argument('--output_path', required=True)
@@ -84,21 +99,11 @@ if __name__ == '__main__':
 
     image_files_organised = find_images_names(args.image_path)
 
-    cam_folder_list = []
+    # cam_folder_list = []
     cam_folder_list = os.listdir(f"{args.image_path}")
-
+    # cam_folder_list = [d for d in os.listdir(f"{args.image_path}") if os.path.isdir(os.path.join(f"{args.image_path}", d))]
 
     matches_str = []
-    def add_match(cam_id, matched_cam_id, current_image_file, matched_frame_id):
-        # REMOVE AFTER
-        # if (cam_folder_list[cam_id + matched_cam_id] == "backleft") and (not cam_folder_list[cam_id] == "backleft") and (matched_frame_id >= 785):
-        #     matched_frame_id -= 647
-        # if (not cam_folder_list[cam_id + matched_cam_id] == "backleft") and (cam_folder_list[cam_id] == "backleft") and (matched_frame_id >= 785):
-        #     matched_frame_id += 647
-
-        if matched_frame_id < len(matched_cam['images']):
-            matched_image_file = matched_cam['images'][matched_frame_id]
-            matches_str.append(f"{cam_folder_list[cam_id]}/{current_image_file} {cam_folder_list[cam_id + matched_cam_id]}/{matched_image_file}\n")
 
 
     for cam_id, current_cam in enumerate(image_files_organised):
@@ -154,5 +159,5 @@ if __name__ == '__main__':
     # with open(f"{args.image_path}/TEST_new_{args.n_seq_matches_per_view}_{args.n_quad_matches_per_view}_{args.n_loop_closure_match_per_view}_{args.n_gps_neighbours}.txt", "w") as f:
     with open(args.output_path, "w") as f:
         f.write(''.join(out_matches))
-
-    print(0)
+    print(f"Matches written to {args.output_path}")
+    # print(0)

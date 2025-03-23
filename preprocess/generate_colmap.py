@@ -53,6 +53,11 @@ def setup_dirs(project_dir):
         os.makedirs(os.path.join(project_dir, "camera_calibration/unrectified", "sparse"))
 
 if __name__ == '__main__':
+    from pathlib import Path
+    FP_colmap_exe = Path(r"D:\COLMAP-3.8-windows-cuda\COLMAP.bat").resolve()
+    assert FP_colmap_exe.exists(), f"COLMAP executable not found at {FP_colmap_exe}"
+    FP_proper_python = Path(r"C:\Users\Xuanli\.conda\envs\ptcv0310n122\python.exe").resolve()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--project_dir', type=str, required=True)
     parser.add_argument('--images_dir', default="", help="Will be set to project_dir/inputs/images if not set")
@@ -60,12 +65,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     if args.images_dir == "":
-        args.images_dir = os.path.join(args.project_dir, "inputs/images")
+        args.images_dir = Path(args.project_dir) / "inputs/images"
     if args.masks_dir == "":
-        args.masks_dir = os.path.join(args.project_dir, "inputs/masks")
+        args.masks_dir = Path(args.project_dir) / "inputs/masks"
         args.masks_dir = args.masks_dir if os.path.exists(args.masks_dir) else ""
 
-    colmap_exe = "colmap.bat" if platform.system() == "Windows" else "colmap"
+    # colmap_exe = "colmap.bat" if platform.system() == "Windows" else "colmap"
+    colmap_exe = FP_colmap_exe.as_posix() if platform.system() == "Windows" else "colmap"
     start_time = time.time()
 
     print(f"Project will be built here ${args.project_dir} base images are available there ${args.images_dir}.")
@@ -74,9 +80,10 @@ if __name__ == '__main__':
 
     ## Feature extraction, matching then mapper to generate the colmap.
     print("extracting features ...")
+    FP_database = Path(args.project_dir) / "camera_calibration/unrectified/database.db"
     colmap_feature_extractor_args = [
         colmap_exe, "feature_extractor",
-        "--database_path", f"{args.project_dir}/camera_calibration/unrectified/database.db",
+        "--database_path", FP_database.as_posix(),
         "--image_path", f"{args.images_dir}",
         "--ImageReader.single_camera", "1",
         "--ImageReader.default_focal_length_factor", "0.5",
@@ -84,19 +91,25 @@ if __name__ == '__main__':
         ]
     
     try:
-        subprocess.run(colmap_feature_extractor_args, check=True)
+        # subprocess.run(colmap_feature_extractor_args, check=True)
+        result = subprocess.run(colmap_feature_extractor_args, check=True, capture_output=True, text=True)
+        print(result.stdout)
+
     except subprocess.CalledProcessError as e:
         print(f"Error executing colmap feature_extractor: {e}")
+        print(f"Standard output: {e.stdout}")
+        print(f"Error output: {e.stderr}")
         sys.exit(1)
 
     print("making custom matches...")
     make_colmap_custom_matcher_args = [
-        "python", f"preprocess/make_colmap_custom_matcher.py",
+        "%s" % FP_proper_python.as_posix(), f"preprocess/make_colmap_custom_matcher.py",
         "--image_path", f"{args.images_dir}",
         "--output_path", f"{args.project_dir}/camera_calibration/unrectified/matching.txt"
     ]
     try:
-        subprocess.run(make_colmap_custom_matcher_args, check=True)
+        result = subprocess.run(make_colmap_custom_matcher_args, check=True)
+        print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"Error executing make_colmap_custom_matcher: {e}")
         sys.exit(1)
@@ -197,7 +210,7 @@ if __name__ == '__main__':
     # re-orient + scale colmap
     print(f"re-orient and scaling scene to {args.project_dir}/camera_calibration/aligned/sparse/0")
     reorient_args = [
-            "python", f"preprocess/auto_reorient.py",
+            FP_proper_python.as_posix(), f"preprocess/auto_reorient.py",
             "--input_path", f"{args.project_dir}/camera_calibration/rectified/sparse",
             "--output_path", f"{args.project_dir}/camera_calibration/aligned/sparse/0"
         ]
