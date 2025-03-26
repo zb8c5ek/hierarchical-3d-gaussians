@@ -1,0 +1,2 @@
+get_callable_paths.colmap_path = r"D:\COLMAP-3.8-windows-cuda\COLMAP.bat"
+get_callable_paths.python_path = r"C:\Users\Xuanli\.conda\envs\ptcv0310n122\python.exe"

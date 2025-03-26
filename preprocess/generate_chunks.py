@@ -50,7 +50,15 @@ if __name__ == '__main__':
     parser.add_argument('--skip_bundle_adjustment', action="store_true", default=False)
     parser.add_argument('--n_jobs', type=int, default=8, help="Run per chunk COLMAP in parallel on the same machine. Does not handle multi GPU systems. --use_slurm overrides this.")
     args = parser.parse_args()
-    
+    # --- INIT ----
+    from INIT_load_callable import get_callable_paths
+    from pathlib import Path
+    import gin
+    fp_gin_config = Path('./ginconfigs/callable.gin').resolve()
+    assert fp_gin_config.exists(), f"GIN config file not found at {fp_gin_config}"
+    gin.parse_config_file(fp_gin_config.as_posix())
+    FP_colmap_exe, FP_proper_python = get_callable_paths()
+    # === INIT END ===
     images_dir, colmap_dir, chunks_dir = setup_dirs(
         args.images_dir,
         args.global_colmap_dir, args.chunks_dir,
@@ -63,7 +71,7 @@ if __name__ == '__main__':
         ]
     submitted_jobs = []
 
-    colmap_exe = "colmap.bat" if platform.system() == "Windows" else "colmap"
+    colmap_exe = "%s" % FP_colmap_exe.as_posix() if platform.system() == "Windows" else "colmap"
     start_time = time.time()
 
     ## First create raw_chunks, each chunk has its own colmap.
@@ -75,7 +83,8 @@ if __name__ == '__main__':
             "--output_path", f"{chunks_dir}/raw_chunks",
         ]
     try:
-        subprocess.run(make_chunk_args, check=True)
+        results = subprocess.run(make_chunk_args, check=True)
+        print(results.stdout)
     except subprocess.CalledProcessError as e:
         print(f"Error executing image_undistorter: {e}")
         sys.exit(1)
